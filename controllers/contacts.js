@@ -1,10 +1,26 @@
 const {
   contacts: { Contact },
 } = require("../models");
-const helper = require("../helpers");
+const { ctrlWrapper, HttpError } = require("../helpers");
 
 const getAll = async (req, res) => {
-  const result = await Contact.find();
+  const { _id: owner } = req.user;
+  const { page = 1, limit = 10, favorite } = req.query;
+  const skip = (page - 1) * limit;
+
+  const query = {
+    owner,
+  };
+
+  if (favorite === "true") {
+    query.favorite = true;
+  }
+
+  const result = await Contact.find(query, "-createdAt -updatedAt", {
+    skip,
+    limit,
+  }).populate("owner", "email subscription");
+
   res.json({
     status: "success",
     code: 200,
@@ -27,7 +43,8 @@ const getById = async (req, res) => {
 };
 
 const create = async (req, res) => {
-  const result = await Contact.create(req.body);
+  const { _id: owner } = req.user;
+  const result = await Contact.create({ ...req.body, owner });
   res.status(201).json({
     status: "success",
     code: 201,
@@ -41,7 +58,7 @@ const remove = async (req, res) => {
   const { contactId } = req.params;
   const result = await Contact.findByIdAndDelete(contactId);
   if (!result) {
-    throw helper.HttpError(404, "Not found");
+    throw HttpError(404, "Not found");
   } else {
     res.json({ message: "contact deleted" });
   }
@@ -76,10 +93,10 @@ const updateStatusContact = async (req, res) => {
 };
 
 module.exports = {
-  getAll: helper.ctrlWrapper(getAll),
-  getById: helper.ctrlWrapper(getById),
-  create: helper.ctrlWrapper(create),
-  remove: helper.ctrlWrapper(remove),
-  update: helper.ctrlWrapper(update),
-  updateStatusContact: helper.ctrlWrapper(updateStatusContact),
+  getAll: ctrlWrapper(getAll),
+  getById: ctrlWrapper(getById),
+  create: ctrlWrapper(create),
+  remove: ctrlWrapper(remove),
+  update: ctrlWrapper(update),
+  updateStatusContact: ctrlWrapper(updateStatusContact),
 };
